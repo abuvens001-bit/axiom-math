@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101322">
+<meta name="description" content="Axiom Math — математический помощник с пошаговыми решениями, графиками и распознаванием задач по фото.">
+<title>Axiom Math</title>
+
+<script src="https://cdn.jsdelivr.net/npm/mathjs@13.2.0/lib/browser/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+<style>
+:root {
+  --bg:#0d1020;--panel:#171b2e;--panel2:#1d2339;
+  --text:#f3f5ff;--muted:#9ba5c2;--accent:#8b7cff;
+  --accent2:#6554e8;--line:#2b3150;--green:#49d6a0;
+  --red:#ff7185;--radius:18px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer}
+.app{min-height:100vh;display:grid;grid-template-columns:245px 1fr}
+.sidebar{background:#111528;border-right:1px solid var(--line);padding:24px 15px;position:sticky;top:0;height:100vh}
+.logo{font-size:23px;font-weight:850;letter-spacing:-1px;padding:8px 12px 28px}
+.logo span{color:var(--accent)}
+.nav-label{color:#75809f;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;padding:12px}
+.nav button{display:flex;align-items:center;gap:12px;width:100%;padding:12px;border:0;border-radius:12px;background:transparent;color:#abb4d0;text-align:left;margin:3px 0}
+.nav button:hover,.nav button.active{background:#272747;color:white}
+.nav button.active{box-shadow:inset 3px 0 var(--accent)}
+.nav-icon{width:24px;text-align:center;font-size:18px}
+.sidebar-bottom{position:absolute;bottom:20px;left:20px;right:20px;color:var(--muted);font-size:12px}
+main{padding:30px;max-width:1200px;width:100%;margin:auto}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;gap:12px}
+.topbar h1{font-size:27px;margin:0;letter-spacing:-.8px}
+.status{font-size:12px;color:var(--green);background:#17372f;padding:8px 12px;border-radius:30px}
+.page{display:none}.page.active{display:block}
+.subtitle{color:var(--muted);margin:8px 0 24px;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.tool-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:21px;min-height:145px;text-align:left;color:var(--text);transition:.2s}
+.tool-card:hover{border-color:var(--accent);transform:translateY(-2px);background:var(--panel2)}
+.tool-card .icon{font-size:25px;margin-bottom:18px}
+.tool-card h3{margin:0 0 7px;font-size:16px}
+.tool-card p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin-bottom:16px}
+.panel h2{font-size:17px;margin:0 0 17px}
+label{display:block;color:#c0c8df;font-size:13px;margin-bottom:8px}
+input,textarea,select{width:100%;background:#101528;border:1px solid var(--line);color:var(--text);border-radius:11px;padding:13px;outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px #8b7cff22}
+textarea{min-height:100px;resize:vertical}
+.field{margin-bottom:16px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn{border:0;border-radius:11px;padding:12px 17px;background:var(--accent2);color:white;font-weight:650}
+.btn:hover{filter:brightness(1.12)}
+.btn.secondary{background:#292f49;color:#dce1f5}
+.btn.danger{background:#512a3b}
+.result{display:none;margin-top:18px}
+.result.show{display:block}
+.answer-box{background:#142e2a;border:1px solid #286b57;border-radius:13px;padding:17px;margin-bottom:14px}
+.answer-label{font-size:11px;color:#8ce4c2;text-transform:uppercase;letter-spacing:1px}
+.answer{font-size:23px;font-weight:750;margin-top:7px;overflow-wrap:anywhere}
+.steps{counter-reset:step}
+.step{padding:12px 12px 12px 42px;border-bottom:1px solid var(--line);position:relative;color:#d5dbed;font-size:14px;line-height:1.6}
+.step:before{counter-increment:step;content:counter(step);position:absolute;left:5px;top:11px;background:#302c59;color:#c6bcff;border-radius:50%;width:25px;height:25px;display:grid;place-items:center;font-size:12px}
+.note{font-size:12px;color:var(--muted);line-height:1.5}
+.error{color:var(--red);background:#3b202c;border:1px solid #71364a;padding:12px;border-radius:10px;margin-top:12px}
+.photo-preview{display:none;max-width:100%;max-height:260px;border-radius:12px;margin:12px 0}
+#graph{width:100%;max-height:370px}
+.history-item{padding:14px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}
+.history-item strong{display:block;font-size:14px}
+.history-item small{color:var(--muted)}
+.reference-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.formula{background:#101528;padding:15px;border-radius:12px;border:1px solid var(--line)}
+.formula strong{display:block;margin-bottom:8px}
+.formula code{color:#c6bcff;font-size:15px;white-space:normal}
+.mobile-menu{display:none}
+@media(max-width:850px){
+ .app{grid-template-columns:1fr}
+ .sidebar{position:fixed;z-index:10;left:-260px;width:245px;transition:.25s}
+ .sidebar.open{left:0}
+ .mobile-menu{display:block;background:var(--panel2);border:1px solid var(--line);color:white;padding:9px 12px;border-radius:10px}
+ main{padding:20px 15px}
+ .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+ .grid{grid-template-columns:1fr 1fr;gap:9px}
+ .tool-card{padding:14px;min-height:135px}
+ .tool-card h3{font-size:14px}
+ .tool-card p{font-size:11px}
+ .panel{padding:16px}
+ .row,.reference-grid{grid-template-columns:1fr}
+ .topbar h1{font-size:22px}
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+<aside class="sidebar" id="sidebar">
+  <div class="logo">AXIOM <span>MATH</span></div>
+  <div class="nav-label">Рабочее пространство</div>
+  <nav class="nav">
+    <button class="active" data-page="home"><span class="nav-icon">⌂</span>Главная</button>
+    <button data-page="equation"><span class="nav-icon">ƒ</span>Уравнения</button>
+    <button data-page="photo"><span class="nav-icon">▧</span>Решить по фото</button>
+    <button data-page="check"><span class="nav-icon">✓</span>Проверка ответа</button>
+    <button data-page="system"><span class="nav-icon">▦</span>Системы</button>
+    <button data-page="inequality"><span class="nav-icon">≤</span>Неравенства</button>
+    <button data-page="function"><span class="nav-icon">∿</span>Функции и графики</button>
+    <button data-page="geometry"><span class="nav-icon">△</span>Геометрия</button>
+  </nav>
+  <div class="nav-label">Дополнительно</div>
+  <nav class="nav">
+    <button data-page="history"><span class="nav-icon">◷</span>История</button>
+    <button data-page="reference"><span class="nav-icon">π</span>Формулы</button>
+  </nav>
+  <div class="sidebar-bottom">Axiom Math · Учись понимать решения</div>
+</aside>
+
+<main>
+<header class="topbar">
+  <div style="display:flex;align-items:center;gap:12px">
+    <button class="mobile-menu" id="menu">☰</button>
+    <h1 id="pageTitle">Главная</h1>
+  </div>
+  <div class="status">● Система готова</div>
+</header>
+
+<section class="page active" id="home">
+  <h2>Математика — понятнее.</h2>
+  <p class="subtitle">Выбери инструмент для решения задачи.</p>
+  <div class="grid">
+    <button class="tool-card" data-open="equation"><div class="icon">ƒ</div><h3>Уравнения</h3><p>Линейные и квадратные уравнения</p></button>
+    <button class="tool-card" data-open="photo"><div class="icon">▧</div><h3>Решить по фото</h3><p>Распознавание условия с изображения</p></button>
+    <button class="tool-card" data-open="check"><div class="icon">✓</div><h3>Проверка ответа</h3><p>Проверь свой результат</p></button>
+    <button class="tool-card" data-open="system"><div class="icon">▦</div><h3>Системы</h3><p>Системы двух линейных уравнений</p></button>
+    <button class="tool-card" data-open="inequality"><div class="icon">≤</div><h3>Неравенства</h3><p>Линейные неравенства</p></button>
+    <button class="tool-card" data-open="function"><div class="icon">∿</div><h3>Функции</h3><p>Вычисление и построение графиков</p></button>
+    <button class="tool-card" data-open="geometry"><div class="icon">△</div><h3>Геометрия</h3><p>Площади, объёмы и теоремы</p></button>
+    <button class="tool-card" data-open="reference"><div class="icon">π</div><h3>Справочник</h3><p>Формулы и математические правила</p></button>
+    <button class="tool-card" data-open="history"><div class="icon">◷</div><h3>История</h3><p>Ранее решённые задачи</p></button>
+  </div>
+</section>
+
+<section class="page" id="equation">
+  <p class="subtitle">Введи уравнение. Например: x^2 - 5x + 6 = 0</p>
+  <div class="panel">
+    <h2>Условие задачи</h2>
+    <div class="field"><label for="equationInput">Уравнение</label><input id="equationInput" value="x^2 - 5x + 6 = 0" placeholder="Например: 2x + 5 = 13"></div>
+    <div class="actions"><button class="btn" id="solveEquation">Решить</button><button class="btn secondary" id="clearEquation">Очистить</button></div>
+    <div id="equationResult" class="result"></div>
+  </div>
+</section>
+
+<section class="page" id="photo">
+  <p class="subtitle">Сфотографируй задачу или выбери изображение из галереи.</p>
+  <div class="panel">
+    <h2>Изображение задачи</h2>
+    <div class="field"><input type="file" id="photoInput" accept="image/*" capture="environment"></div>
+    <img id="preview" class="photo-preview" alt="Предпросмотр изображения задачи">
+    <div class="actions">
+      <button class="btn" id="recognize">Распознать текст</button>
+      <button class="btn secondary" id="removePhoto">Удалить фото</button>
+    </div>
+    <p class="note" id="ocrStatus">Распознанный текст можно исправить вручную перед решением.</p>
+  </div>
+  <div class="panel">
+    <h2>Распознанное условие</h2>
+    <div class="field"><textarea id="photoText" placeholder="Здесь появится текст с фотографии..."></textarea></div>
+    <button class="btn" id="solvePhoto">Решить условие</button>
+    <div id="photoResult" class="result"></div>
+  </div>
+</section>
+
+<section class="page" id="check">
+  <p class="subtitle">Подставим твой ответ в уравнение и проверим равенство.</p>
+  <div class="panel">
+    <h2>Проверка решения</h2>
+    <div class="field"><label>Уравнение</label><input id="checkEquation" placeholder="Например: 2x + 3 = 9"></div>
+    <div class="field"><label>Твой ответ (x)</label><input id="checkAnswer" placeholder="Например: 3" inputmode="decimal"></div>
+    <button class="btn" id="checkButton">Проверить</button>
+    <div id="checkResult" class="result"></div>
+  </div>
+</section>
+
+<section class="page" id="system">
+  <p class="subtitle">Решение системы двух линейных уравнений с двумя неизвестными.</p>
+  <div class="panel">
+    <h2>Система уравнений</h2>
+    <div class="field"><label>Первое уравнение</label><input id="systemA" value="2x + y = 7"></div>
+    <div class="field"><label>Второе уравнение</label><input id="systemB" value="x - y = 2"></div>
+    <button class="btn" id="solveSystem">Решить систему</button>
+    <div id="systemResult" class="result"></div>
+  </div>
+</section>
+
+<section class="page" id="inequality">
+  <p class="subtitle">Поддерживаются линейные неравенства с одной переменной.</p>
+  <div class="panel">
+    <h2>Неравенство</h2>
+    <div class="field"><label>Условие</label><input id="inequalityInput" value="2x + 4 > 10"></div>
+    <button class="btn" id="solveInequality">Решить</button>
+    <div id="inequalityResult" class="result"></div>
+  </div>
+</section>
+
+<section class="page" id="function">
+  <p class="subtitle">Вычисли значение функции, найди производную или построй график.</p>
+  <div class="panel">
+    <h2>Исследование функции</h2>
+    <div class="field"><label>Функция f(x)</label><input id="functionInput" value="x^2 - 4"></div>
+    <div class="row">
+      <div class="field"><label>Значение x</label><input id="functionX" value="2" inputmode="decimal"></div>
+      <div class="field"><label>Диапазон графика</label><select id="graphRange"><option value="5">−5 … 5</option><option value="10">−10 … 10</option><option value="20">−20 … 20</option></select></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="evaluateFunction">Вычислить</button>
+      <button class="btn secondary" id="deriveFunction">Производная</button>
+      <button class="btn secondary" id="drawGraph">График</button>
+    </div>
+    <div id="functionResult" class="result"></div>
+  </div>
+  <div class="panel"><h2>График функции</h2><canvas id="graph"></canvas></div>
+</section>
+
+<section class="page" id="geometry">
+  <p class="subtitle">Выбери формулу и введи известные значения.</p>
+  <div class="panel">
+    <h2>Геометрический калькулятор</h2>
+    <div class="field"><label>Фигура</label>
+      <select id="shape">
+        <option value="circle">Круг</option><option value="rectangle">Прямоугольник</option>
+        <option value="triangle">Треугольник (площадь по основанию и высоте)</option>
+        <option value="pythagoras">Прямоугольный треугольник (гипотенуза)</option>
+        <option value="cylinder">Цилиндр</option>
+      </select>
+    </div>
+    <div class="field"><label id="geometryLabelA">Радиус r</label><input id="geometryA" type="number" step="any"></div>
+    <div class="field" id="geometryFieldB"><label id="geometryLabelB">—</label><input id="geometryB" type="number" step="any"></div>
+    <button class="btn" id="calculateGeometry">Вычислить</button>
+    <div id="geometryResult" class="result"></div>
+  </div>
+</section>
+
+<section class="page" id="history">
+  <p class="subtitle">Последние вычисления сохраняются на этом устройстве.</p>
+  <div class="panel">
+    <div class="actions" style="justify-content:space-between;align-items:center">
+      <h2>История решений</h2><button class="btn danger" id="clearHistory">Очистить историю</button>
+    </div>
+    <div id="historyList"></div>
+  </div>
+</section>
+
+<section class="page" id="reference">
+  <p class="subtitle">Основные формулы школьной и начальной университетской математики.</p>
+  <div class="reference-grid">
+    <div class="formula"><strong>Квадратное уравнение</strong><code>D = b² − 4ac<br>x = (−b ± √D) / 2a</code></div>
+    <div class="formula"><strong>Теорема Пифагора</strong><code>a² + b² = c²</code></div>
+    <div class="formula"><strong>Дискриминант</strong><code>D = b² − 4ac</code></div>
+    <div class="formula"><strong>Площадь круга</strong><code>S = πr²</code></div>
+    <div class="formula"><strong>Длина окружности</strong><code>C = 2πr</code></div>
+    <div class="formula"><strong>Площадь треугольника</strong><code>S = ah / 2</code></div>
+    <div class="formula"><strong>Площадь прямоугольника</strong><code>S = ab</code></div>
+    <div class="formula"><strong>Объём цилиндра</strong><code>V = πr²h</code></div>
+    <div class="formula"><strong>Производная степени</strong><code>(xⁿ)' = nxⁿ⁻¹</code></div>
+    <div class="formula"><strong>Логарифм произведения</strong><code>logₐ(xy) = logₐx + logₐy</code></div>
+    <div class="formula"><strong>Основное тригонометрическое тождество</strong><code>sin²x + cos²x = 1</code></div>
+    <div class="formula"><strong>Квадрат суммы</strong><code>(a + b)² = a² + 2ab + b²</code></div>
+    <div class="formula"><strong>Квадрат разности</strong><code>(a − b)² = a² − 2ab + b²</code></div>
+    <div class="formula"><strong>Разность квадратов</strong><code>a² − b² = (a − b)(a + b)</code></div>
+    <div class="formula"><strong>Среднее арифметическое</strong><code>x̄ = (x₁ + … + xₙ) / n</code></div>
+    <div class="formula"><strong>Вероятность</strong><code>P(A) = m / n</code></div>
+  </div>
+</section>
+</main>
+</div>
+
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+const mathEngine = window.math;
+let chart = null;
+
+function showError(target, message) {
+  target.className = "result show";
+  target.innerHTML = "";
+  const box = document.createElement("div");
+  box.className = "error";
+  box.textContent = message;
+  target.appendChild(box);
+}
+function renderResult(target, answer, steps = [], note = "") {
+  target.innerHTML = "";
+  target.className = "result show";
+  const box = document.createElement("div");
+  box.className = "answer-box";
+  const label = document.createElement("div");
+  label.className = "answer-label";
+  label.textContent = "Итоговый ответ";
+  const value = document.createElement("div");
+  value.className = "answer";
+  value.textContent = answer;
+  box.append(label, value);
+  target.appendChild(box);
+
+  if (steps.length) {
+    const heading = document.createElement("h3");
+    heading.textContent = "Ход решения";
+    target.appendChild(heading);
+    const list = document.createElement("div");
+    list.className = "steps";
+    steps.forEach(s => {
+      const item = document.createElement("div");
+      item.className = "step";
+      item.textContent = s;
+      list.appendChild(item);
+    });
+    target.appendChild(list);
+  }
+  if (note) {
+    const p = document.createElement("p");
+    p.className = "note";
+    p.textContent = note;
+    target.appendChild(p);
+  }
+}
+function numberText(n) {
+  if (!Number.isFinite(n)) return String(n);
+  if (Math.abs(n) < 1e-10) return "0";
+  return Number(n.toPrecision(10)).toString();
+}
+function saveHistory(type, input, answer) {
+  let history = JSON.parse(localStorage.getItem("axiom-history") || "[]");
+  history.unshift({type, input, answer, date:new Date().toLocaleString()});
+  history = history.slice(0,60);
+  localStorage.setItem("axiom-history", JSON.stringify(history));
+}
+function refreshHistory() {
+  const list = $("historyList");
+  list.innerHTML = "";
+  const history = JSON.parse(localStorage.getItem("axiom-history") || "[]");
+  if (!history.length) {
+    list.textContent = "Пока нет сохранённых решений.";
+    return;
+  }
+  history.forEach(item => {
+    const row = document.createElement("div");
+    row.className = "history-item";
+    const left = document.createElement("div");
+    const strong = document.createElement("strong");
+    strong.textContent = item.input;
+    const small = document.createElement("small");
+    small.textContent = item.type + " · " + item.date;
+    left.append(strong, small);
+    const right = document.createElement("strong");
+    right.textContent = item.answer;
+    row.append(left, right);
+    list.appendChild(row);
+  });
+}
+function parseEquation(input) {
+  const parts = input.split("=");
+  if (parts.length !== 2) throw Error("Уравнение должно содержать один знак =.");
+  return [parts[0].trim(), parts[1].trim()];
+}
+function evaluate(expression, scope = {}) {
+  if (!expression.trim()) throw Error("Введи математическое выражение.");
+  return mathEngine.evaluate(expression, scope);
+}
+function linearCoefficients(expression) {
+  const f = x => Number(evaluate(expression, {x}));
+  const c = f(0), a = f(1) - c;
+  const tests = [-3,-2,2,3,5];
+  for (const x of tests) {
+    if (!Number.isFinite(f(x)) || Math.abs(f(x) - (a*x+c)) > 1e-7) {
+      throw Error("Это выражение не является линейным относительно x.");
+    }
+  }
+  return {a,b:c};
+}
+function solveLinearOrQuadratic(input) {
+  const [left,right] = parseEquation(input);
+  const expression = `(${left})-(${right})`;
+  const f = x => Number(evaluate(expression,{x}));
+  const c = f(0), f1=f(1), fm1=f(-1);
+  const a = (f1+fm1-2*c)/2;
+  const b = f1-c-a;
+  for (const x of [-3,-2,2,3,4]) {
+    if (Math.abs(f(x)-(a*x*x+b*x+c)) > 1e-6) {
+      throw Error("Пока поддерживаются линейные и квадратные уравнения. Проверь запись или попробуй упростить выражение.");
+    }
+  }
+  const steps = [`Переносим все слагаемые в левую часть: ${expression} = 0`];
+  if (Math.abs(a)<1e-10) {
+    if (Math.abs(b)<1e-10) {
+      if (Math.abs(c)<1e-10) return {answer:"Бесконечно много решений",steps:[...steps,"Получено тождество 0 = 0."]};
+      return {answer:"Решений нет",steps:[...steps,`Получено неверное равенство
