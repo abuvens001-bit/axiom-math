@@ -400,3 +400,65 @@ function solveLinearOrQuadratic(input) {
     if (Math.abs(b)<1e-10) {
       if (Math.abs(c)<1e-10) return {answer:"Бесконечно много решений",steps:[...steps,"Получено тождество 0 = 0."]};
       return {answer:"Решений нет",steps:[...steps,`Получено неверное равенство
+      return {
+        answer: "Решений нет",
+        steps: [...steps, "Получено неверное равенство: c = 0 не выполняется."]
+      };
+    }
+
+    const x = -c / b;
+
+    return {
+      answer: `x = ${Number(x.toFixed(6))}`,
+      steps: [
+        ...steps,
+        `Получаем линейное уравнение: ${b}x + ${c} = 0`,
+        `Переносим свободный член: ${b}x = ${-c}`,
+        `Делим обе части на ${b}`,
+        `x = ${Number(x.toFixed(6))}`
+      ]
+    };
+  }
+
+  const D = b * b - 4 * a * c;
+
+  if (D < -1e-10) {
+    return {
+      answer: "Действительных корней нет",
+      steps: [
+        ...steps,
+        `D = ${b}² - 4 × ${a} × ${c} = ${D}`,
+        "Дискриминант меньше нуля."
+      ]
+    };
+  }
+
+  if (Math.abs(D) < 1e-10) {
+    const x = -b / (2 * a);
+
+    return {
+      answer: `x = ${Number(x.toFixed(6))}`,
+      steps: [
+        ...steps,
+        `D = ${D}`,
+        "Дискриминант равен нулю.",
+        `x = -b / (2a) = ${Number(x.toFixed(6))}`
+      ]
+    };
+  }
+
+  const sqrtD = Math.sqrt(D);
+  const x1 = (-b + sqrtD) / (2 * a);
+  const x2 = (-b - sqrtD) / (2 * a);
+
+  return {
+    answer: `x₁ = ${Number(x1.toFixed(6))}; x₂ = ${Number(x2.toFixed(6))}`,
+    steps: [
+      ...steps,
+      `D = b² - 4ac = ${D}`,
+      `√D = ${Number(sqrtD.toFixed(6))}`,
+      `x₁ = (-b + √D) / (2a) = ${Number(x1.toFixed(6))}`,
+      `x₂ = (-b - √D) / (2a) = ${Number(x2.toFixed(6))}`
+    ]
+  };
+}
