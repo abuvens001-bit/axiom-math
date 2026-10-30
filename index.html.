@@ -462,3 +462,588 @@ function solveLinearOrQuadratic(input) {
     ]
   };
 }
+: c = ${c}, где c не равно нулю."]};
+    }
+
+    const x = -c / b;
+    return {
+      answer: `x = ${numberText(x)}`,
+      steps: [
+        ...steps,
+        `Получаем линейное уравнение: ${numberText(b)}x + ${numberText(c)} = 0`,
+        `x = -c / b = ${numberText(x)}`
+      ]
+    };
+  }
+
+  const D = b*b - 4*a*c;
+
+  if (D < -1e-10) {
+    return {
+      answer: "Действительных корней нет",
+      steps: [...steps, `D = ${numberText(D)} < 0`]
+    };
+  }
+
+  if (Math.abs(D) < 1e-10) {
+    const x = -b/(2*a);
+    return {
+      answer: `x = ${numberText(x)}`,
+      steps: [...steps, "D = 0", `x = -b / (2a) = ${numberText(x)}`]
+    };
+  }
+
+  const sqrtD = Math.sqrt(D);
+  const x1 = (-b + sqrtD)/(2*a);
+  const x2 = (-b - sqrtD)/(2*a);
+
+  return {
+    answer: `x₁ = ${numberText(x1)}; x₂ = ${numberText(x2)}`,
+    steps: [
+      ...steps,
+      `D = b² - 4ac = ${numberText(D)}`,
+      `√D = ${numberText(sqrtD)}`,
+      `x₁ = ${numberText(x1)}`,
+      `x₂ = ${numberText(x2)}`
+    ]
+  };
+}
+
+// Переключение страниц
+const pageNames = {
+  home:"Главная",
+  equation:"Уравнения",
+  photo:"Решить по фото",
+  check:"Проверка ответа",
+  system:"Системы",
+  inequality:"Неравенства",
+  function:"Функции и графики",
+  geometry:"Геометрия",
+  history:"История",
+  reference:"Формулы"
+};
+
+function openPage(name) {
+  document.querySelectorAll(".page").forEach(page => {
+    page.classList.toggle("active", page.id === name);
+  });
+
+  document.querySelectorAll("[data-page]").forEach(button => {
+    button.classList.toggle("active", button.dataset.page === name);
+  });
+
+  $("pageTitle").textContent = pageNames[name] || "Axiom Math";
+  $("sidebar").classList.remove("open");
+
+  if (name === "history") refreshHistory();
+}
+
+document.querySelectorAll("[data-page]").forEach(button => {
+  button.addEventListener("click", () => openPage(button.dataset.page));
+});
+
+document.querySelectorAll("[data-open]").forEach(button => {
+  button.addEventListener("click", () => openPage(button.dataset.open));
+});
+
+$("menu").addEventListener("click", () => {
+  $("sidebar").classList.toggle("open");
+});
+
+// Уравнения
+$("solveEquation").addEventListener("click", () => {
+  const input = $("equationInput").value.trim();
+  try {
+    const result = solveLinearOrQuadratic(input);
+    renderResult($("equationResult"), result.answer, result.steps);
+    saveHistory("Уравнение", input, result.answer);
+  } catch (error) {
+    showError($("equationResult"), error.message);
+  }
+});
+
+$("clearEquation").addEventListener("click", () => {
+  $("equationInput").value = "";
+  $("equationResult").className = "result";
+});
+
+// Проверка ответа
+$("checkButton").addEventListener("click", () => {
+  const equation = $("checkEquation").value.trim();
+  const answer = Number($("checkAnswer").value);
+
+  try {
+    if (!Number.isFinite(answer)) {
+      throw Error("Введи корректное числовое значение ответа.");
+    }
+
+    const [left,right] = parseEquation(equation);
+    const l = Number(evaluate(left,{x:answer}));
+    const r = Number(evaluate(right,{x:answer}));
+
+    if (!Number.isFinite(l) || !Number.isFinite(r)) {
+      throw Error("Не удалось вычислить выражение.");
+    }
+
+    const difference = Math.abs(l-r);
+    const correct = difference < 1e-8;
+
+    const message = correct
+      ? "Ответ верный"
+      : "Ответ неверный";
+
+    renderResult(
+      $("checkResult"),
+      message,
+      [
+        `Левая часть = ${numberText(l)}`,
+        `Правая часть = ${numberText(r)}`,
+        `Разность = ${numberText(difference)}`
+      ]
+    );
+
+    saveHistory("Проверка ответа",equation,message);
+  } catch(error) {
+    showError($("checkResult"),error.message);
+  }
+});
+
+// Коэффициенты линейного уравнения ax + by + c = 0
+function coefficients2(expression) {
+  const f = (x,y) => Number(evaluate(expression,{x,y}));
+
+  const c = f(0,0);
+  const a = f(1,0)-c;
+  const b = f(0,1)-c;
+
+  for (const [x,y] of [[1,1],[2,1],[1,2],[-1,2],[3,-2]]) {
+    const actual = f(x,y);
+    const expected = a*x+b*y+c;
+
+    if (!Number.isFinite(actual) ||
+        Math.abs(actual-expected)>1e-7) {
+      throw Error("Поддерживаются только линейные системы с x и y.");
+    }
+  }
+
+  return {a,b,c};
+}
+
+function getSystemCoefficients(input) {
+  const [left,right] = parseEquation(input);
+  return coefficients2(`(${left})-(${right})`);
+}
+
+// Системы
+$("solveSystem").addEventListener("click", () => {
+  const first = $("systemA").value.trim();
+  const second = $("systemB").value.trim();
+
+  try {
+    const A = getSystemCoefficients(first);
+    const B = getSystemCoefficients(second);
+
+    const D = A.a*B.b-B.a*A.b;
+    const Dx = (-A.c)*B.b-(-B.c)*A.b;
+    const Dy = A.a*(-B.c)-B.a*(-A.c);
+
+    if (Math.abs(D)<1e-10) {
+      const proportional =
+        Math.abs(A.a*B.c-B.a*A.c)<1e-10 &&
+        Math.abs(A.b*B.c-B.b*A.c)<1e-10;
+
+      const answer = proportional
+        ? "Система имеет бесконечно много решений или вырождена."
+        : "Система не имеет решений.";
+
+      renderResult($("systemResult"),answer,[
+        "Определитель D = 0.",
+        "Единственного решения нет."
+      ]);
+      return;
+    }
+
+    const x = Dx/D;
+    const y = Dy/D;
+    const answer = `x = ${numberText(x)}; y = ${numberText(y)}`;
+
+    renderResult($("systemResult"),answer,[
+      `D = ${numberText(D)}`,
+      `Dx = ${numberText(Dx)}`,
+      `Dy = ${numberText(Dy)}`,
+      `x = Dx / D = ${numberText(x)}`,
+      `y = Dy / D = ${numberText(y)}`
+    ]);
+
+    saveHistory("Система",first+"; "+second,answer);
+  } catch(error) {
+    showError($("systemResult"),error.message);
+  }
+});
+
+// Линейные неравенства
+$("solveInequality").addEventListener("click", () => {
+  const input = $("inequalityInput").value.trim();
+
+  try {
+    const match = input.match(/^(.*?)\s*(<=|>=|<|>)\s*(.*?)$/);
+
+    if (!match) {
+      throw Error("Используй знак <, >, ≤ или ≥.");
+    }
+
+    const left = match[1];
+    const operator = match[2];
+    const right = match[3];
+
+    const coefficients = linearCoefficients(
+      `(${left})-(${right})`
+    );
+
+    const a = coefficients.a;
+    const b = coefficients.b;
+
+    if (Math.abs(a)<1e-10) {
+      const truth = {
+        "<":b<0,
+        ">":b>0,
+        "<=":b<=0,
+        ">=":b>=0
+      }[operator];
+
+      const answer = truth
+        ? "Верно при любом x"
+        : "Решений нет";
+
+      renderResult($("inequalityResult"),answer,[
+        `Получаем ${numberText(b)} ${operator} 0`
+      ]);
+      return;
+    }
+
+    const x = -b/a;
+    let newOperator = operator;
+
+    if (a<0) {
+      newOperator = {
+        "<":">",
+        ">":"<",
+        "<=":">=",
+        ">=":"<="
+      }[operator];
+    }
+
+    const answer = `x ${newOperator} ${numberText(x)}`;
+
+    renderResult($("inequalityResult"),answer,[
+      `Переносим все слагаемые в левую часть.`,
+      `Получаем ${numberText(a)}x + ${numberText(b)} ${operator} 0`,
+      a<0
+        ? "Делим на отрицательное число и меняем знак неравенства."
+        : "Делим на положительное число.",
+      answer
+    ]);
+
+    saveHistory("Неравенство",input,answer);
+  } catch(error) {
+    showError($("inequalityResult"),error.message);
+  }
+});
+
+// Функции
+function getFunction() {
+  const expression = $("functionInput").value.trim();
+
+  if (!expression) throw Error("Введи функцию.");
+
+  return mathEngine.parse(expression);
+}
+
+$("evaluateFunction").addEventListener("click", () => {
+  try {
+    const node = getFunction();
+    const x = Number($("functionX").value);
+
+    if (!Number.isFinite(x)) {
+      throw Error("Введи корректное значение x.");
+    }
+
+    const result = Number(node.evaluate({x}));
+
+    if (!Number.isFinite(result)) {
+      throw Error("Функция не определена в этой точке.");
+    }
+
+    renderResult(
+      $("functionResult"),
+      `f(${numberText(x)}) = ${numberText(result)}`,
+      [
+        `Функция: f(x) = ${$("functionInput").value}`,
+        `Подставляем x = ${numberText(x)}`,
+        `Получаем ${numberText(result)}`
+      ]
+    );
+  } catch(error) {
+    showError($("functionResult"),error.message);
+  }
+});
+
+$("deriveFunction").addEventListener("click", () => {
+  try {
+    const node = getFunction();
+    const derivative = mathEngine.derivative(node,"x");
+    const simplified = mathEngine.simplify(derivative);
+
+    renderResult(
+      $("functionResult"),
+      `f'(x) = ${simplified.toString()}`,
+      [
+        `Исходная функция: ${node.toString()}`,
+        `Находим производную по x.`,
+        `Результат: ${simplified.toString()}`
+      ]
+    );
+  } catch(error) {
+    showError($("functionResult"),error.message);
+  }
+});
+
+$("drawGraph").addEventListener("click", () => {
+  try {
+    const node = getFunction();
+    const range = Number($("graphRange").value);
+    const labels = [];
+    const values = [];
+
+    for (let x=-range; x<=range; x+=range/40) {
+      labels.push(Number(x.toFixed(3)));
+
+      try {
+        const y = Number(node.evaluate({x}));
+        values.push(Number.isFinite(y) ? y : null);
+      } catch {
+        values.push(null);
+      }
+    }
+
+    if (chart) chart.destroy();
+
+    chart = new Chart($("graph"),{
+      type:"line",
+      data:{
+        labels,
+        datasets:[{
+          label:"f(x)",
+          data:values,
+          borderColor:"#8b7cff",
+          borderWidth:2,
+          pointRadius:0,
+          spanGaps:false,
+          tension:0.15
+        }]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins:{
+          legend:{labels:{color:"#f3f5ff"}}
+        },
+        scales:{
+          x:{ticks:{color:"#9ba5c2"},grid:{color:"#2b3150"}},
+          y:{ticks:{color:"#9ba5c2"},grid:{color:"#2b3150"}}
+        }
+      }
+    });
+
+    $("graph").parentElement.style.height="370px";
+    renderResult(
+      $("functionResult"),
+      "График построен",
+      [`f(x) = ${node.toString()}`]
+    );
+  } catch(error) {
+    showError($("functionResult"),error.message);
+  }
+});
+
+// Геометрия
+const geometrySettings = {
+  circle:["Радиус r",null],
+  rectangle:["Сторона a","Сторона b"],
+  triangle:["Основание a","Высота h"],
+  pythagoras:["Катет a","Катет b"],
+  cylinder:["Радиус r","Высота h"]
+};
+
+$("shape").addEventListener("change", () => {
+  const settings = geometrySettings[$("shape").value];
+
+  $("geometryLabelA").textContent=settings[0];
+  $("geometryFieldB").style.display=settings[1] ? "block":"none";
+
+  if (settings[1]) {
+    $("geometryLabelB").textContent=settings[1];
+  }
+});
+
+$("calculateGeometry").addEventListener("click", () => {
+  const shape = $("shape").value;
+  const a = Number($("geometryA").value);
+  const b = Number($("geometryB").value);
+
+  try {
+    if (!Number.isFinite(a) || a<=0) {
+      throw Error("Введи положительное значение первого параметра.");
+    }
+
+    if (shape!=="circle" &&
+        (!Number.isFinite(b) || b<=0)) {
+      throw Error("Введи положительное значение второго параметра.");
+    }
+
+    let answer;
+    let steps=[];
+
+    if (shape==="circle") {
+      const area=Math.PI*a*a;
+      const circumference=2*Math.PI*a;
+
+      answer=`S = ${numberText(area)}`;
+      steps=[
+        "Площадь круга: S = πr²",
+        `S = π × ${a}² = ${numberText(area)}`,
+        `Длина окружности C = ${numberText(circumference)}`
+      ];
+    }
+
+    if (shape==="rectangle") {
+      const area=a*b;
+      const perimeter=2*(a+b);
+
+      answer=`S = ${numberText(area)}`;
+      steps=[
+        "Площадь: S = ab",
+        `S = ${a} × ${b} = ${numberText(area)}`,
+        `Периметр P = ${numberText(perimeter)}`
+      ];
+    }
+
+    if (shape==="triangle") {
+      const area=a*b/2;
+
+      answer=`S = ${numberText(area)}`;
+      steps=[
+        "Площадь треугольника: S = ah / 2",
+        `S = ${a} × ${b} / 2 = ${numberText(area)}`
+      ];
+    }
+
+    if (shape==="pythagoras") {
+      const c=Math.sqrt(a*a+b*b);
+
+      answer=`c = ${numberText(c)}`;
+      steps=[
+        "Теорема Пифагора: c² = a² + b²",
+        `c² = ${a}² + ${b}²`,
+        `c = ${numberText(c)}`
+      ];
+    }
+
+    if (shape==="cylinder") {
+      const volume=Math.PI*a*a*b;
+      const area=2*Math.PI*a*(a+b);
+
+      answer=`V = ${numberText(volume)}`;
+      steps=[
+        "Объём цилиндра: V = πr²h",
+        `V = π × ${a}² × ${b} = ${numberText(volume)}`,
+        `Полная площадь поверхности = ${numberText(area)}`
+      ];
+    }
+
+    renderResult($("geometryResult"),answer,steps);
+    saveHistory("Геометрия",shape,answer);
+  } catch(error) {
+    showError($("geometryResult"),error.message);
+  }
+});
+
+// Фото и распознавание текста
+let selectedImage = null;
+
+$("photoInput").addEventListener("change",event => {
+  const file=event.target.files[0];
+
+  if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
+    showError($("photoResult"),"Выбери файл изображения.");
+    return;
+  }
+
+  selectedImage=file;
+  $("preview").src=URL.createObjectURL(file);
+  $("preview").style.display="block";
+  $("ocrStatus").textContent="Изображение загружено. Нажми «Распознать текст».";
+});
+
+$("removePhoto").addEventListener("click",() => {
+  selectedImage=null;
+  $("photoInput").value="";
+  $("preview").removeAttribute("src");
+  $("preview").style.display="none";
+  $("photoText").value="";
+  $("ocrStatus").textContent="Изображение удалено.";
+  $("photoResult").className="result";
+});
+
+$("recognize").addEventListener("click",async () => {
+  if (!selectedImage) {
+    $("ocrStatus").textContent="Сначала выбери фотографию.";
+    return;
+  }
+
+  try {
+    $("recognize").disabled=true;
+    $("ocrStatus").textContent="Распознаём текст. Это может занять некоторое время...";
+
+    const result=await Tesseract.recognize(
+      selectedImage,
+      "eng"
+    );
+
+    $("photoText").value=result.data.text.trim();
+    $("ocrStatus").textContent="Готово. Проверь распознанный текст и исправь ошибки.";
+  } catch(error) {
+    $("ocrStatus").textContent="Не удалось распознать изображение: "+error.message;
+  } finally {
+    $("recognize").disabled=false;
+  }
+});
+
+$("solvePhoto").addEventListener("click",() => {
+  const input=$("photoText").value.trim();
+
+  try {
+    if (!input) throw Error("Сначала распознай или введи условие задачи.");
+
+    const result=solveLinearOrQuadratic(input);
+
+    renderResult($("photoResult"),result.answer,result.steps);
+    saveHistory("Задача по фото",input,result.answer);
+  } catch(error) {
+    showError($("photoResult"),error.message);
+  }
+});
+
+// История
+$("clearHistory").addEventListener("click",() => {
+  if (!confirm("Удалить всю историю решений?")) return;
+
+  localStorage.removeItem("axiom-history");
+  refreshHistory();
+});
+
+// Первоначальная настройка
+refreshHistory();
+$("shape").dispatchEvent(new Event("change"));
