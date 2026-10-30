@@ -1047,3 +1047,6 @@ $("clearHistory").addEventListener("click",() => {
 // Первоначальная настройка
 refreshHistory();
 $("shape").dispatchEvent(new Event("change"));
+</script>
+</body>
+</html>
